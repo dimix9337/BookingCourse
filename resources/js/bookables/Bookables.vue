@@ -46,8 +46,8 @@ export default {
     created(){
         this.loading = true;
 
-        const request = axios.get("/api/bookables").then(response => {
-            this.bookables = response.data
+        const request = axios.get("/api/bookable").then(response => {
+            this.bookables = response.data.data;
             this.loading = false;
         });
     },
