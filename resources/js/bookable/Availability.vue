@@ -58,7 +58,6 @@ export default {
                     if (422 === error.response.status) {
                         this.errors = error.response.data.errors;
                     }
-
                     this.status = error.response.status;
                 })
                 .then( () => (this.loading = false));
@@ -69,15 +68,12 @@ export default {
     },
     computed: {
         hasErrors() {
-            console.log('422');
-            return 422 === this.status && this.errors === null;
+            return 422 === this.status && this.errors !== null;
         },
         hasAvailability() {
-            console.log('200');
             return 200 === this.status;
         },
         noAvailability() {
-            console.log('400');
             return 400 === this.status;
         }
     },
