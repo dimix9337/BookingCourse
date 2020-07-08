@@ -1,6 +1,5 @@
 <?php
 
-use App\Bookable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -24,3 +23,9 @@ Route::get('bookables/{bookable}/availability','Api\BookableAvailabilityControll
         ->name('bookables.availability.show');
 Route::get('bookables/{bookable}/reviews','Api\BookableReviewController')
         ->name('bookables.review.index');
+
+Route::get('/booking-by-review/{reviewKey}','Api\BookingByReviewController')
+        ->name('booking.by-review.show');
+
+
+Route::apiResource('reviews', 'Api\ReviewController')->only(['show']);
