@@ -1,18 +1,21 @@
 <template>
-    <div class="row">
-        <div :class="[{'col-md-4': loading || !alreadyReviewed},{'d-none': !loading && alreadyReviewed}]">
+    <div>
+        <success v-if="success">You've left a review, thank you very much!</success>
+        <fatal-error v-if="error"></fatal-error>
+        <div class="row" v-if="!success && !error">
+        <div :class="[{'col-md-4': twoColumns},{'d-none': oneColumn}]">
             <div class="card">
                 <div class="card-body">
                     <div v-if="loading">Loading...</div>
-                    <div v-else>
+                    <div v-if="hasBooking">
                        <p> Stayed at <router-link :to="{name: 'bookable', params: {id: booking.bookable.bookable_id}}">{{ booking.bookable.title }}</router-link></p>
                         <p>From {{ booking.from }} to {{ booking.to }}</p>
                     </div>
                 </div>
             </div>
         </div>
-        <div :class="[{'col-md-8': loading || !alreadyReviewed},{'col-md-12': !loading && alreadyReviewed}]">
-            <div v-if="loading">Loading...</div>
+        <div :class="[{'col-md-8': twoColumns},{'col-md-12': oneColumn}]">
+        <div v-if="loading">Loading...</div>
         <div v-else>
             <div v-if="alreadyReviewed">
                 <h3>You've already left a review for this booking!</h3>
@@ -27,49 +30,88 @@
                 </div>
                 <div class="form-group">
                     <label for="content" class="text-muted">Desctibe your expitience with</label>
-                    <textarea name="content" cols="30" rows="10" class="form-control" v-model="review.content"></textarea>
+                    <textarea 
+                        name="content" 
+                        cols="30" 
+                        rows="10" 
+                        class="form-control" 
+                        v-model="review.content" 
+                        :class="[{'is-invalid': errorFor('content')}]"></textarea>
+                        <v-errors :errors="errorFor('content')"></v-errors>
                 </div>
-                <button class="btn btn-lg btn-primary btn-block">Submit</button>
+                <button class="btn btn-lg btn-primary btn-block" @click.prevent="submit" :disabled="sending">Submit</button>
             </div>
         </div>
+        </div>
+        
         </div>
     </div>
 </template>
 
 <script>
+import {is404, is422} from './../shared/utils/response';
+import validationErrors from './../shared/mixins/validationErrors';
+
 export default {
+    mixins: [validationErrors],
     data() {
         return {
             review:{
+                id: null,
                 rating: 5,
                 content: null,
+                test:null
             },
             existingReview: null,
             loading: false,
-            booking: null
+            booking: null,
+            error: false,
+            sending: false,
+            success: false,
         }
     },
-    created(){
+    async created(){
+        this.review.id = this.$route.params.id;
         this.loading = true;
-        axios.get(`/api/reviews/${this.$route.params.id}`)
-            .then(response => {
-                this.existingReview = response.data.data
-            })
-            .catch(err => {
-                if (
-                    err.response && 
-                    err.response.status && 
-                    404 === err.response.status
-                ){
-                    return axios.get(`/api/booking-by-review/${this.$route.params.id}`)
-                    .then(response => {
-                        this.booking = response.data.data;
-                    })
+        
+        try {
+            this.existingReview = (await axios.get(`/api/reviews/${this.review.id}`)).data.data;
+        } catch (err) {
+            if (is404(err)){
+                try {
+                    this.booking = (await axios.get(`/api/booking-by-review/${this.review.id}`)).data.data;
+                } catch (err) {
+                    this.error = !is404(err);
                 }
-            })
-            .then(_ => {
-                this.loading = false
-            });
+            } else {
+                this.error = true;
+            }
+        } 
+        this.loading = false;
+
+        // axios.get(`/api/reviews/${this.review.id}`)
+        //     .then(response => {
+        //         this.existingReview = response.data.data;
+        //     })
+        //     .catch(err => {
+        //         if (is404(err)){
+        //             return axios.get(`/api/booking-by-review/${this.review.id}`)
+        //             .then(response => {
+        //                 this.booking = response.data.data;
+        //             }).catch(err =>{
+        //                 // is404(err) ? {}: (this.error = true);
+        //                 this.error = !is404(err);
+
+        //                 // if (!is404(err)){
+        //                     // this.error = true;
+        //                 // }
+        //             })
+        //         }
+                
+        //     })
+        //     .then(_ => {
+        //         this.loading = false
+        //     });
 
 
     },
@@ -82,7 +124,41 @@ export default {
         },
         hasBooking(){
             return this.booking !== null
+        },
+        oneColumn(){
+            return !this.loading && this.alreadyReviewed;
+        },
+        twoColumns(){
+            return this.loading || !this.alreadyReviewed;
         }
+    },
+    methods: {
+        submit(){
+            this.errors = null;
+            this.sending = true;
+            this.success = false;
+
+            axios
+                .post(`/api/reviews`, this.review)
+                .then(response => {
+                    this.success = 201 === response.status;
+                })
+                .catch(err => {
+                    if (is422(err)){
+                        const errors = err.response.data.errors;
+
+                        if (errors["content"] && 1 === _.size(errors)) {
+                            this.errors = errors;
+                            return;
+                        }
+                    }
+
+                    this.error = true;
+                })
+                .then(_ => (this.sending = false));
+        }
+        
     }
 }
 </script>
+
